@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:15-alpine
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: carpark_db
+      POSTGRES_USER: carpark_user
+      POSTGRES_PASSWORD: carpark_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:

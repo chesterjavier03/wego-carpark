@@ -1,6 +1,7 @@
 package com.wego.carparkapi.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.wego.carparkapi.model.Carpark;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
