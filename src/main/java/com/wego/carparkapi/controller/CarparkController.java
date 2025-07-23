@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * @author chesterjavier
@@ -48,4 +49,15 @@ public class CarparkController {
     return ResponseEntity.ok(result);
   }
 
+  @GetMapping("/import/csv")
+  public ResponseEntity<String> importCarparkDataFromCsv() {
+    log.info("Manual CSV import triggered...");
+    try {
+      carparkService.importCarparkDataFromCsv();
+      return ResponseEntity.ok("CSV import completed successfully");
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError()
+          .body("CSV import failed: " + e.getMessage());
+    }
+  }
 }

@@ -1,30 +1,41 @@
 package com.wego.carparkapi.service;
 
+import com.opencsv.bean.CsvToBeanBuilder;
 import com.wego.carparkapi.dto.CarparkResponseDto;
 import com.wego.carparkapi.model.Carpark;
+import com.wego.carparkapi.model.CarparkCsv;
 import com.wego.carparkapi.repository.CarparkRepository;
+import com.wego.carparkapi.util.CoordinateConversionUtility;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.io.InputStreamReader;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.core.io.ClassPathResource;
 
 /**
  * @author chesterjavier
  * @Date 7/23/25
  */
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class CarparkService {
 
   private final CarparkRepository carparkRepository;
+  private final CoordinateConversionUtility coordinateConversionUtility;
+
+  @Value("${app.carpark.csv.file-path}")
+  private String csvFilePath;
 
   @Transactional(readOnly = true)
   public List<CarparkResponseDto> findNearestCarparks(Double latitude, Double longitude,
@@ -56,5 +67,125 @@ public class CarparkService {
         .totalLots(carpark.getTotalLots())
         .availableLots(carpark.getAvailableLots())
         .build();
+  }
+
+  @Transactional
+  public void importCarparkDataFromCsv() {
+    log.info("Starting CSV import from: {}", csvFilePath);
+
+    try {
+      ClassPathResource resource = new ClassPathResource(csvFilePath);
+
+      List<CarparkCsv> csvModels = new CsvToBeanBuilder<CarparkCsv>(
+          new InputStreamReader(resource.getInputStream()))
+          .withType(CarparkCsv.class)
+          .withIgnoreLeadingWhiteSpace(true)
+          .build()
+          .parse();
+
+      log.info("Parsed {} records from CSV", csvModels.size());
+
+      int imported = 0;
+      int errors = 0;
+
+      for (CarparkCsv csvModel : csvModels) {
+        try {
+          Optional<Carpark> existingCarpark = carparkRepository.findByCarparkNumber(csvModel.getCarParkNo());
+
+          Carpark carpark;
+
+          if (existingCarpark.isPresent()) {
+            carpark = existingCarpark.get();
+            updateCarparkFromCsv(carpark, csvModel);
+          } else {
+            carpark = createCarparkFromCsv(csvModel);
+          }
+
+          if (carpark != null) {
+            carparkRepository.save(carpark);
+            imported++;
+          }
+
+        } catch (Exception e) {
+          log.error("Error processing carpark {}: {}", csvModel.getCarParkNo(), e.getMessage());
+          errors++;
+        }
+      }
+
+    } catch (Exception e) {
+      log.error("Error while importing csv file: {}", e.getLocalizedMessage());
+      throw new RuntimeException("CSV import failed", e);
+    }
+  }
+
+  private void updateCarparkFromCsv(Carpark carpark, CarparkCsv csvModel) {
+    carpark.setAddress(csvModel.getAddress());
+    carpark.setCarparkType(csvModel.getCarParkType());
+    carpark.setTypeOfParkingSystem(csvModel.getTypeOfParkingSystem());
+    carpark.setShortTermParking(csvModel.getShortTermParking());
+    carpark.setFreeParking(csvModel.getFreeParking());
+    carpark.setNightParking(csvModel.getNightParking());
+    carpark.setCarparkDecks(parseInteger(csvModel.getCarParkDecks()));
+    carpark.setGantryHeight(parseDouble(csvModel.getGantryHeight()));
+    carpark.setCarparkBasement(csvModel.getCarParkBasement());
+  }
+
+  private Carpark createCarparkFromCsv(CarparkCsv csvModel) {
+    try {
+      double xCoord = parseDouble(csvModel.getXCoord());
+      double yCoord = parseDouble(csvModel.getYCoord());
+
+      double[] wgs84 = coordinateConversionUtility.convertSvy21ToWgs84(xCoord, yCoord);
+
+      if (!coordinateConversionUtility.isValidSingaporeCoordinates(wgs84[0], wgs84[1])) {
+        log.warn("Invalid coordinates for carpark {}: lat={}, lon={}",
+            csvModel.getCarParkNo(), wgs84[0], wgs84[1]);
+        return null;
+      }
+
+      return Carpark.builder()
+          .carparkNumber(csvModel.getCarParkNo())
+          .address(csvModel.getAddress())
+          .xCoord(xCoord)
+          .yCoord(yCoord)
+          .latitude(wgs84[0])
+          .longitude(wgs84[1])
+          .carparkType(csvModel.getCarParkType())
+          .typeOfParkingSystem(csvModel.getTypeOfParkingSystem())
+          .shortTermParking(csvModel.getShortTermParking())
+          .freeParking(csvModel.getFreeParking())
+          .nightParking(csvModel.getNightParking())
+          .carparkDecks(parseInteger(csvModel.getCarParkDecks()))
+          .gantryHeight(parseDouble(csvModel.getGantryHeight()))
+          .carparkBasement(csvModel.getCarParkBasement())
+          .totalLots(0)
+          .availableLots(0)
+          .build();
+    } catch (Exception e) {
+      log.error("Error creating carpark from CSV model {}: {}", csvModel.getCarParkNo(), e.getMessage());
+      return null;
+    }
+  }
+
+  private Double parseDouble(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    try {
+      return Double.parseDouble(value.trim());
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private Integer parseInteger(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    try {
+      return Integer.parseInt(value.trim());
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 }

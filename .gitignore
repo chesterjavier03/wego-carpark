@@ -35,3 +35,4 @@ build/
 mvnw
 mvnw.cmd
 maven-wrapper.properties
+.DS_Store

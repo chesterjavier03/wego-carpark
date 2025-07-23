@@ -53,7 +53,7 @@ public class Carpark {
   @Column(name = "longitude", nullable = false)
   private Double longitude;
 
-  @Column(name = "carpark_type")
+  @Column(name = "car_park_type")
   private String carparkType;
 
   @Column(name = "type_of_parking_system")
@@ -68,13 +68,13 @@ public class Carpark {
   @Column(name = "night_parking")
   private String nightParking;
 
-  @Column(name = "carpark_decks")
+  @Column(name = "car_park_decks")
   private Integer carparkDecks;
 
   @Column(name = "gantry_height")
   private Double gantryHeight;
 
-  @Column(name = "carpark_basement")
+  @Column(name = "car_park_basement")
   private String carparkBasement;
 
   @Column(name = "total_lots")
