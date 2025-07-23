@@ -10,25 +10,33 @@
 	</parent>
 	<groupId>com.wego</groupId>
 	<artifactId>carparkapi</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>carparkapi</name>
+	<version>1.0.0</version>
+	<packaging>jar</packaging>
+
+	<name>Carpark API</name>
 	<description>API for finding nearest car parks with availability</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
 	<developers>
-		<developer/>
+		<developer>
+			<id>chesterjavier03</id>
+			<name>Chester Javier</name>
+			<email>chesterjavier03@duck.com</email>
+			<url>https://chesterjavier03.vercel.app/</url>
+			<organization>WEGO</organization>
+			<organizationUrl>http://www.example.com</organizationUrl>
+			<roles>
+				<role>architect</role>
+				<role>developer</role>
+			</roles>
+			<timezone>Asia/Manila</timezone>
+		</developer>
 	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+
 	<properties>
 		<java.version>17</java.version>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
 	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -62,6 +70,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
