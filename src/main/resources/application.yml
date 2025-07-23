@@ -28,3 +28,6 @@ app:
   carpark:
     csv:
       file-path: data/hdb-carpark-information.csv
+    api:
+      url: https://api.data.gov.sg/v1/transport/carpark-availability
+      timeout: 10000

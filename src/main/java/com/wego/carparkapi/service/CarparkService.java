@@ -1,6 +1,8 @@
 package com.wego.carparkapi.service;
 
 import com.opencsv.bean.CsvToBeanBuilder;
+import com.wego.carparkapi.dto.CarparkAvailabilityResponseDto;
+import com.wego.carparkapi.dto.CarparkAvailabilityResponseDto.AvailabilityItem;
 import com.wego.carparkapi.dto.CarparkResponseDto;
 import com.wego.carparkapi.model.Carpark;
 import com.wego.carparkapi.model.CarparkCsv;
@@ -9,8 +11,11 @@ import com.wego.carparkapi.util.CoordinateConversionUtility;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.io.InputStreamReader;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +26,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 /**
  * @author chesterjavier
@@ -33,15 +40,22 @@ public class CarparkService {
 
   private final CarparkRepository carparkRepository;
   private final CoordinateConversionUtility coordinateConversionUtility;
+  private final WebClient webClient;
 
   @Value("${app.carpark.csv.file-path}")
   private String csvFilePath;
+
+  @Value("${app.carpark.api.url}")
+  private String carparkApiUrl;
+
+  @Value("${app.carpark.api.timeout:1000}")
+  private int apiTimeout;
 
   @Transactional(readOnly = true)
   public List<CarparkResponseDto> findNearestCarparks(Double latitude, Double longitude,
       @Min(value = 1, message = "Page must be at least 1") Integer page,
       @Min(value = 1, message = "Per page must be at least 1")
-      @Max(value = 1000, message = "Per page must not exceed 100")
+      @Max(value = 100, message = "Per page must not exceed 100")
       Integer perPage) {
     log.debug("Finding nearest carparks for location: {}, {}, page: {}, perPage: {}",
         latitude, longitude, page, perPage);
@@ -187,5 +201,74 @@ public class CarparkService {
     } catch (NumberFormatException e) {
       return null;
     }
+  }
+
+  @Transactional
+  public void updateCarparkAvailability() {
+    log.info("Fetching carpark availability from API: {}", carparkApiUrl);
+
+    try {
+      Mono<CarparkAvailabilityResponseDto> responseMono = webClient
+          .get()
+          .uri(carparkApiUrl)
+          .retrieve()
+          .bodyToMono(CarparkAvailabilityResponseDto.class)
+          .timeout(Duration.ofMillis(apiTimeout))
+          .onErrorResume(TimeoutException.class, ex -> Mono.empty());
+
+      CarparkAvailabilityResponseDto response = responseMono.block();
+
+      if (response != null && response.getItems() != null && !response.getItems().isEmpty()) {
+        processAvailabilityData(response.getItems().get(0));
+      } else {
+        log.warn("No availability data received from API");
+      }
+
+    } catch (Exception e) {
+      log.error("Failed to fetch carpark availability: {}", e.getMessage(), e);
+      throw new RuntimeException("Failed to update carpark availability", e);
+    }
+  }
+
+  private void processAvailabilityData(AvailabilityItem availabilityItem) {
+    LocalDateTime updateTime = LocalDateTime.now();
+    int updated = 0;
+    int notFound = 0;
+
+    for (CarparkAvailabilityResponseDto.CarparkData carparkData : availabilityItem.getCarparkData()) {
+      try {
+        Optional<Carpark> carparkOpt = carparkRepository.findByCarparkNumber(carparkData.getCarparkNumber());
+
+        if (carparkOpt.isPresent()) {
+          Carpark carpark = carparkOpt.get();
+
+          CarparkAvailabilityResponseDto.CarparkInfo carInfo = carparkData.getCarparkInfo().stream()
+              .filter(info -> "C".equals(info.getLotType()))
+              .findFirst()
+              .orElse(carparkData.getCarparkInfo().get(0));
+
+          carpark.setTotalLots(parseInteger(carInfo.getTotalLots()));
+          carpark.setAvailableLots(parseInteger(carInfo.getLotsAvailable()));
+          carpark.setLastUpdated(updateTime);
+
+          carparkRepository.save(carpark);
+          updated++;
+
+        } else {
+          log.debug("Carpark not found in database: {}", carparkData.getCarparkNumber());
+          notFound++;
+        }
+
+      } catch (Exception e) {
+        log.error("Error updating carpark {}: {}", carparkData.getCarparkNumber(), e.getMessage());
+      }
+    }
+
+    log.info("Availability update completed. Updated: {}, Not found: {}", updated, notFound);
+  }
+
+  @Transactional(readOnly = true)
+  public long getCarparksWithAvailabilityCount() {
+    return carparkRepository.findAllWithAvailableLots(Pageable.unpaged()).getTotalElements();
   }
 }

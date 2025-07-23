@@ -49,6 +49,10 @@ public class CarparkController {
     return ResponseEntity.ok(result);
   }
 
+  /**
+   * Manual trigger for importing data from CSV
+   * for development/testing
+   */
   @GetMapping("/import/csv")
   public ResponseEntity<String> importCarparkDataFromCsv() {
     log.info("Manual CSV import triggered...");
@@ -59,5 +63,25 @@ public class CarparkController {
       return ResponseEntity.internalServerError()
           .body("CSV import failed: " + e.getMessage());
     }
+  }
+
+  @GetMapping("/import/availability")
+  public ResponseEntity<String> updateAvailability() {
+    log.info("Manual availability update triggered");
+    try {
+      carparkService.updateCarparkAvailability();
+      return ResponseEntity.ok("Availability update completed successfully");
+    } catch (Exception e) {
+      log.error("Availability update failed: {}", e.getMessage());
+      return ResponseEntity.internalServerError()
+          .body("Availability update failed: " + e.getMessage());
+    }
+  }
+
+  @GetMapping("/health")
+  public ResponseEntity<String> health() {
+    long availableCarparks = carparkService.getCarparksWithAvailabilityCount();
+    return ResponseEntity.ok(
+        String.format("Service is healthy. %d carparks with availability found.", availableCarparks));
   }
 }

@@ -30,4 +30,7 @@ public interface CarparkRepository extends JpaRepository<Carpark, Long> {
   Page<Carpark> findNearestCarparksWithAvailability(@Param("latitude") Double latitude, @Param("longitude") Double longitude, Pageable pageable);
 
   Optional<Carpark> findByCarparkNumber(String carparkNumber);
+
+  @Query("SELECT c FROM Carpark c WHERE c.availableLots > 0")
+  Page<Carpark> findAllWithAvailableLots(Pageable pageable);
 }
