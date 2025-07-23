@@ -181,28 +181,6 @@ public class CarparkService {
     }
   }
 
-  private Double parseDouble(String value) {
-    if (value == null || value.trim().isEmpty()) {
-      return null;
-    }
-    try {
-      return Double.parseDouble(value.trim());
-    } catch (NumberFormatException e) {
-      return null;
-    }
-  }
-
-  private Integer parseInteger(String value) {
-    if (value == null || value.trim().isEmpty()) {
-      return null;
-    }
-    try {
-      return Integer.parseInt(value.trim());
-    } catch (NumberFormatException e) {
-      return null;
-    }
-  }
-
   @Transactional
   public void updateCarparkAvailability() {
     log.info("Fetching carpark availability from API: {}", carparkApiUrl);
@@ -270,5 +248,27 @@ public class CarparkService {
   @Transactional(readOnly = true)
   public long getCarparksWithAvailabilityCount() {
     return carparkRepository.findAllWithAvailableLots(Pageable.unpaged()).getTotalElements();
+  }
+
+  private Double parseDouble(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    try {
+      return Double.parseDouble(value.trim());
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private Integer parseInteger(String value) {
+    if (value == null || value.trim().isEmpty()) {
+      return null;
+    }
+    try {
+      return Integer.parseInt(value.trim());
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 }
