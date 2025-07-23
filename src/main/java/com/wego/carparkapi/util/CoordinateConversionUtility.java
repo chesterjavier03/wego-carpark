@@ -100,5 +100,4 @@ public class CoordinateConversionUtility {
     return latitude >= 1.0 && latitude <= 1.5 &&
         longitude >= 103.0 && longitude <= 104.5;
   }
-
 }
