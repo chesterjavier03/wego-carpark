@@ -11,7 +11,30 @@ services:
       POSTGRES_DB: carpark_db
       POSTGRES_USER: carpark_user
       POSTGRES_PASSWORD: carpark_password
+    networks:
+      - carpark-app-network
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  app:
+    container_name: carpark-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/carpark_db
+      SPRING_DATASOURCE_USERNAME: carpark_user
+      SPRING_DATASOURCE_PASSWORD: carpark_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - 8080:8080
+    networks:
+      - carpark-app-network
+    restart: always
+    volumes:
+      - ./logs:/app/logs
 volumes:
   postgres_data:
+networks:
+  carpark-app-network:
