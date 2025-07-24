@@ -1,135 +1,283 @@
 # Carpark API
 
-API for finding the nearest car parks in Singapore with real-time availability, built with Spring Boot.
-
-## How to Run
-
-1. Start the PostgreSQL database:
-```
-docker-compose up -d postgres
-```
-2. Build the application JAR:
-```
-mvn clean install
-```
-3. Start the application (and rebuild the Docker image if needed):
-```
-docker-compose up -d --build
-```
-
-- App: http://localhost:8080
-- PostgreSQL: ocalhost:5432
-```
-user:   carpark_user
-pass:   carpark_password
-db:     carpark_db
-```
+A Spring Boot application that provides an API to find the nearest car parks with available lots in Singapore. This application integrates with Singapore's government data sources to provide real-time parking availability information.
 
 ## Features
-- Find nearest car parks with available lots
-- Import car park data from CSV
-- Scheduled and manual update of car park availability from public API
-- PostgreSQL database support
-- Dockerized for easy deployment
-- Health and metrics endpoints
+
+- **Nearest Carpark Search**: Find carparks closest to a given latitude/longitude with available parking spots
+- **Real-time Availability**: Integration with Singapore's carpark availability API
+- **Coordinate Conversion**: Converts SVY21 coordinates to WGS84 (latitude/longitude)
+- **Pagination Support**: Paginated results for efficient data retrieval
+- **Data Import**: CSV import functionality for carpark information
+- **Validation**: Input validation for coordinates and parameters
+- **Error Handling**: Comprehensive error handling with meaningful responses
+- **Health Checks**: Health endpoint for monitoring
+- **Docker Support**: Complete Docker containerization
 
 ## Tech Stack
-- Java 17
-- Spring Boot 3
-- Spring Data JPA
-- PostgreSQL
-- Docker & Docker Compose
-- Maven
-- OpenCSV
 
-## Getting Started
+- **Java 17**
+- **Spring Boot 3.2.0**
+- **Spring Data JPA**
+- **PostgreSQL** (Production) / H2 (Testing)
+- **Maven**
+- **Docker & Docker Compose**
+- **Lombok**
+- **OpenCSV**
+- **WebFlux** (for external API calls)
+- **JUnit 5 & Mockito** (Testing)
+
+## API Endpoints
+
+### GET /carparks/nearest
+
+Find nearest carparks with available lots.
+
+**Parameters:**
+- `latitude` (required): User's latitude (1.0 - 1.5 for Singapore)
+- `longitude` (required): User's longitude (103.0 - 104.5 for Singapore)
+- `page` (optional): Page number, defaults to 1
+- `per_page` (optional): Results per page, defaults to 10, max 100
+
+**Example Request:**
+```bash
+GET /carparks/nearest?latitude=1.37326&longitude=103.897&page=1&per_page=3
+```
+
+**Example Response:**
+```json
+[
+  {
+    "address": "BLK 401-413, 460-463 HOUGANG AVENUE 10",
+    "latitude": 1.37429,
+    "longitude": 103.896,
+    "total_lots": 693,
+    "available_lots": 182
+  },
+  {
+    "address": "BLK 351-357 HOUGANG AVENUE 7",
+    "latitude": 1.37234,
+    "longitude": 103.899,
+    "total_lots": 249,
+    "available_lots": 143
+  }
+]
+```
+
+### GET /carparks/import/csv
+
+Manual import carpark data from CSV file (development/testing).
+
+### GET /carparks/import/availability
+
+Manual update carpark availability from external API (development/testing).
+
+### GET /carparks/health
+
+Health check endpoint.
+
+## Quick Start
 
 ### Prerequisites
+
+- Java 17+
 - Docker & Docker Compose
-- Java 17 (for local builds)
-- Maven (for local builds)
+- Maven 3.6+
 
-### Running with Docker Compose
+### PostgreSQL
 
-```
-git clone <repo-url>
-cd carparkapi
+- user:   `carpark_user`
+- pass:   `carpark_password`
+- db:     `carpark_db`
 
-# Start PostgreSQL
-docker-compose up -d postgres
+### Running with Docker Compose (Recommended)
 
-# Build app jar
-mvn clean install
-
-# Start the application
-docker-compose up --build
-```
-
-### Running Locally (without Docker)
-
-1. Start PostgreSQL locally with the same credentials as above.
-2. Import the schema/data if needed.
-3. Build and run:
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd carparkapi
    ```
+
+2. **Create the CSV data file:**
+   Download the HDB carpark information CSV from:
+   https://beta.data.gov.sg/datasets/d_23f946fa557947f93a8043bbef41dd09/view
+
+   Place it at: `src/main/resources/data/hdb-carpark-information.csv`
+
+3. **Start PostgreSQL**
+   ```bash
+   docker-compose up postgres
+   ```
+
+4. **Build Application JAR:**
+   ```bash
+   mvn clean install
+   ```
+5. **Start the application (and rebuild the Docker image if needed):**
+   ```bash
+   docker-compose up --build
+   ```
+
+5. **Test the API:**
+   ```bash
+   curl "http://localhost:8080/carparks/nearest?latitude=1.37326&longitude=103.897&page=1&per_page=3"
+   ```
+
+### Running Locally
+
+1. **Start PostgreSQL:**
+   ```bash
+   docker-compose up postgres
+   ```
+
+2. **Build and Run the application:**
+   ```bash
    ./mvnw clean package
    java -jar target/carparkapi-1.0.0.jar
    ```
 
+## Project Structure
+
+```
+src/
+├── main/
+│   ├── java/com/wego/carparkapi/
+│   │   ├── controller/         # REST controllers
+│   │   ├── dto/                # Data transfer objects
+│   │   ├── model/              # CSV models
+│   │   ├── repository/         # Data access layer
+│   │   ├── service/            # Business logic
+│   │   ├── util/               # Configuration classes
+│   └── resources/
+│       ├── data/               # CSV data files
+│       └── application.yml     # Configuration
+└── test/                       # Unit and integration tests
+```
+
 ## Configuration
 
-Configuration is managed via `src/main/resources/application.yml` and environment variables:
+Key configuration properties in `application.yml`:
 
-- `SPRING_DATASOURCE_URL` (default: jdbc:postgresql://localhost:5432/carpark_db)
-- `SPRING_DATASOURCE_USERNAME` (default: carpark_user)
-- `SPRING_DATASOURCE_PASSWORD` (default: carpark_password)
-- `SPRING_JPA_HIBERNATE_DDL_AUTO` (default: update)
-
-## Data Import
-
-Initial car park data is loaded from:
-- `src/main/resources/data/hdb-carpark-information.csv`
-
-CSV columns:
-```
-car_park_no,address,x_coord,y_coord,car_park_type,type_of_parking_system,short_term_parking,free_parking,night_parking,car_park_decks,gantry_height,car_park_basement
+```yaml
+app:
+   carpark:
+      csv:
+         file-path: data/hdb-carpark-information.csv
+      api:
+         url: https://api.data.gov.sg/v1/transport/carpark-availability
+         timeout: 10000
 ```
 
-To manually import:
-```
-GET /carparks/import/csv
-```
+## Data Sources
 
-## API Endpoints
-
-### Find Nearest Carparks
-```
-GET /carparks/nearest?latitude=1.3&longitude=103.8&page=1&per_page=10
-```
-- Returns a list of car parks sorted by distance with available lots.
-
-### Manual Data Import
-```
-GET /carparks/import/csv
-```
-- Imports car park data from the CSV file.
-
-### Manual Availability Update
-```
-GET /carparks/import/availability
-```
-- Triggers an immediate update of car park availability from the public API.
-
-### Health Check
-```
-GET /carparks/health
-```
-- Returns service health and number of carparks with availability.
+### Carpark Information (CSV)
+- **Source**: Singapore Government Data Portal
+- **URL**: https://beta.data
 
 ## Testing
 
 Run all tests:
+```bash
+./mvnw test jacoco:report
 ```
-./mvnw test
+
+## Performance Considerations
+
+### Database Optimization
+- **Indexes**: Composite index on (latitude, longitude) for spatial queries
+- **Query Optimization**: Native SQL with distance calculation in database
+- **Connection Pooling**: HikariCP for efficient connection management
+
+### Caching Strategy
+- **Static Data**: Carpark information cached in database
+- **API Calls**: Rate limiting and timeout configuration for external API
+- **Future Enhancement**: Redis caching for frequently requested locations
+
+### Scalability
+- **Horizontal Scaling**: Stateless application design
+- **Database Scaling**: Read replicas for query distribution
+- **Load Balancing**: Application can run multiple instances behind load balancer
+
+## Monitoring & Observability
+
+### Health Checks
+- **Endpoint**: `/carparks/health`
+- **Checks**: Database connectivity and data availability
+- **Integration**: Ready for Kubernetes liveness/readiness probes
+
+### Logging
+- **Framework**: SLF4J with Logback
+- **Levels**: Configurable logging levels
+- **Format**: Structured logging for better parsing
+
+### Metrics
+- **Actuator**: Spring Boot Actuator endpoints enabled
+- **Endpoints**: `/actuator/health`, `/actuator/info`, `/actuator/metrics`
+
+
+## Deployment
+
+### Docker Production Build
+```dockerfile
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+# Copy Maven files for dependency resolution
+COPY pom.xml .
+COPY .mvn .mvn
+COPY mvnw .
+
+# Download dependencies
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build the application
+RUN ./mvnw clean package -DskipTests
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Copy the built jar from your local 'target' folder into the container
+COPY target/carparkapi-1.0.0.jar app.jar
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+CMD ["java", "-jar", "app.jar"]
+
+```
+
+### Error Handling Examples
+```bash
+  # Missing parameters (400 Bad Request)
+  curl "http://localhost:8080/carparks/nearest?latitude=1.37326"
+
+  # Invalid coordinates (400 Bad Request)
+  curl "http://localhost:8080/carparks/nearest?latitude=2.0&longitude=103.897"
+
+  # Invalid page number (400 Bad Request)
+  curl "http://localhost:8080/carparks/nearest?latitude=1.37326&longitude=103.897&page=0"
+```
+
+## Development & AI Tools Used
+
+### AI-Assisted Development
+This project was developed with assistance from AI tools as encouraged in the exercise
+
+**Tools Used:**
+- **Prompting Techniques**:
+   - "Implement coordinate conversion from SVY21 to WGS84"
+
+**Benefits Observed:**
+- Documentation template generation
+
+# Check application health
+```bash
+  curl http://localhost:8080/actuator/health
 ```
 
 ## Logs
